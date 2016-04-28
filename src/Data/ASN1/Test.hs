@@ -1,0 +1,41 @@
+{-# LANGUAGE FlexibleContexts #-}
+
+module Data.ASN1.Test where
+
+import Prelude hiding (sequence)
+import Numeric.Natural (Natural)
+
+import Control.Lens
+
+import Data.ASN1.Fresnel
+import Data.ASN1.Encoding (decodeASN1)
+import Data.ASN1.BinaryEncoding (DER(..))
+
+import qualified Data.ByteString.Lazy as B
+
+testKPNInput = B.pack [0x30,0x31,0xA0,0x0B,0x1B,0x09,
+  0x49,0x50,0x41,0x2E,0x4C,0x4F,0x43,0x41,0x4C,0xA1,0x22,0x30,0x20,0xA0,0x03,0x02,
+  0x01,0x01,0xA1,0x19,0x30,0x17,0x1B,0x04,0x68,0x6F,0x73,0x74,0x1B,0x0F,0x66,0x32,
+  0x33,0x2D,0x32,0x2E,0x69,0x70,0x61,0x2E,0x6C,0x6F,0x63,0x61,0x6C]
+
+asn1 = decodeASN1 DER testKPNInput
+
+
+testBasicConstraintsInput =
+  B.pack [0x30, 0x06, 0x01, 0x01, 0xFF, 0x02, 0x01, 0x00]
+
+data BasicConstraints = NotCA | CA (Maybe Natural)
+  deriving (Show)
+
+basicConstraintsIso :: Iso' (Bool, Maybe Natural) BasicConstraints
+basicConstraintsIso = iso f g
+  where
+  f (b, x)  = if b then CA x else NotCA
+  g (CA x)  = (True, x)
+  g _       = (False, Nothing)
+
+basicConstraintsG :: Cons s s ASN1 ASN1 => Grammar s BasicConstraints
+basicConstraintsG = basicConstraintsIso <<$>> sequence
+  ( def False boolean
+  <<*>> opt (natural <<$>> integer)
+  )
