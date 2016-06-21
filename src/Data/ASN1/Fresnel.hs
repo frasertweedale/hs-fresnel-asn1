@@ -55,7 +55,7 @@ module Data.ASN1.Fresnel
   )  where
 
 import Prelude hiding (sequence)
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), guard)
 
 import Control.Lens hiding (sequenceOf)
 import Data.ASN1.BinaryEncoding
@@ -69,7 +69,7 @@ import Data.List.NonEmpty (NonEmpty)
 import Data.Hourglass (DateTime, TimezoneOffset)
 import qualified Data.Set as S
 import Numeric.Natural (Natural)
-import Safe (toEnumMay)
+import Safe (headDef, toEnumMay)
 
 {-# ANN module ("HLint: ignore Use import/export shortcut" :: String) #-}
 
@@ -186,11 +186,19 @@ tag, application :: Cons s s ASN1 ASN1 => Int -> Grammar s a -> Grammar s a
 tag = tagOfClass Data.ASN1.Types.Context
 application = tagOfClass Application
 
-string :: Cons s s ASN1 ASN1 => ASN1StringEncoding -> Grammar s B.ByteString
-string enc = prism f g <<$>> _Cons where
-  f a = ASN1String (ASN1CharacterString enc a)
-  g (ASN1String (ASN1CharacterString enc' a)) | enc == enc' = Right a
-  g s = Left s
+-- | String grammar given permissible encodings.
+--
+-- Only values using one of the given encodings are valid.  The
+-- empty list allows all encodings.
+--
+-- Values are printed using the first encoding, or UTF8 if the list
+-- is empty.
+--
+string :: Cons s s ASN1 ASN1 => [ASN1StringEncoding] -> Grammar s String
+string encs = _String . prism' g f <<$>> _Cons where
+  f s@(ASN1CharacterString enc _) =
+    guard (null encs || enc `elem` encs) >> asn1CharacterToString s
+  g s = asn1CharacterString (headDef UTF8 encs) s
 
 
 encode
