@@ -88,6 +88,11 @@ _Enumerated = prism Enumerated f where
   f (Enumerated n) = Right n
   f z = Left z
 
+_String :: Prism' ASN1 ASN1CharacterString
+_String = prism ASN1String f where
+  f (ASN1String s) = Right s
+  f z = Left z
+
 _BitString :: Prism' ASN1 BitArray
 _BitString = prism BitString f where
   f (BitString bits) = Right bits
